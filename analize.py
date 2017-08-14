@@ -39,6 +39,7 @@ class Analizer(object):
     def __process_result(self, src_file, result):
         result = result.split("\n")
 
+        last_src = src_file
         for line in result:
             mtch = re.match(Analizer.DEPTH_PTRN, line)
             if mtch == None:
