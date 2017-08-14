@@ -1,52 +1,73 @@
 import re
 import os
-import subprocess
 
 import log
 
+class Analizer(object):
+    DEPTH_PTRN = re.compile("([.]+) (.*)")
 
-# @class Analysis - TODO
-class Analize(object):
-    def __init__(self, config, filepath):
-        self.config = config
-        self.filepath = filepath
-        self.dependencies = set()
+    def __init__(self, src_dirs):
+        self.dependencies = dict()
+        self.cmplcmds = list()
 
-        self.__process()
+        if type(src_dirs) != list:
+            raise TypeError("expected list of source directories")
 
-    def __build_call(self):
-        args = list()
+        self.src_dirs = src_dirs
 
-        args.append(self.config.cxx)
-        args.append("-M")
-        args.extend(self.config.inc_flags)
-        args.extend(self.config.extra_flags)
-        args.append(self.filepath)
+    def filter(self, filter_expr):
+        pass
 
-        return args
+    def add(self, cmplcmd):
+        self.cmplcmds.append(cmplcmd)
 
-    def __process(self):
-        args = self.__build_call()
-        log.info("call: " + str(args))
+    def extend(self, cmplcmds):
+        self.cmplcmds.extend(cmplcmds)
 
-        try:
-            ret = subprocess.check_output(args)
-        except OSError:
-            log.error("call failed: " + str(args))
+    def __is_source(self, src_file):
+        for src_dir in self.src_dirs:
+            if src_dir in src_file:
+                return True
+        return False
 
-        # remove newline, tab and escape
-        ret = ret.replace("\\", "").replace("\n", "").replace("\t", "")
+    def __add_dependency(self, src_from, src_to):
+        if not src_from in self.dependencies:
+            self.dependencies[src_from] = set([src_to])
+        else:
+            self.dependencies[src_from].add(src_to)
 
-        # remove prefix
-        ptrn = re.compile("(.*\..*:)(.*)")
-        mtch = re.match(ptrn, ret)
+    def __process_result(self, src_file, result):
+        result = result.split("\n")
 
-        path_list = mtch.group(2)
-        path_list = path_list.split(" ")
+        for line in result:
+            mtch = re.match(Analizer.DEPTH_PTRN, line)
+            if mtch == None:
+                continue
 
-        for path in path_list:
-            dirname = os.path.dirname(path)
-            if dirname in self.config.inc_dirs \
-              or dirname in self.config.src_dirs:
-                self.dependencies.add(path)
+            # are we at "depth 0"?
+            if len(mtch.group(1)) == 1:
+                last_src = src_file
 
+            # last source file was not in source directory
+            # ignore following sources
+            if last_src == None:
+                continue
+
+            if self.__is_source(mtch.group(2)):
+                self.__add_dependency(last_src, mtch.group(2))
+                last_src = mtch.group(2)
+            else:
+                last_src = None
+
+    def process(self):
+        for cmplcmd in self.cmplcmds:
+            log.info("analizing: " + cmplcmd.sourcefile)
+
+            result = cmplcmd.execute()
+            self.__process_result(cmplcmd.sourcefile, result)
+
+    def dump(self):
+        for src_from in self.dependencies:
+            print os.path.basename(src_from)
+            for src_to in self.dependencies[src_from]:
+                print "  -", os.path.basename(src_to)

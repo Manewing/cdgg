@@ -5,8 +5,8 @@ import sys
 import argparse
 
 import log
-import config
 import analize
+import cmplcmds
 import graphs
 
 if __name__ == '__main__':
@@ -14,26 +14,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
             description="TODO",
             epilog="TODO")
-    parser.add_argument("--cxx", dest="cxx", type=str, required=True,
-            help="sets compiler to call")
-    parser.add_argument("--graph", dest="graph", type=str, required=True,
+    parser.add_argument("-c,--compile-commands", dest="cmpl_cmds", type=str,
+            required=True, help="compile commands file to parse")
+    parser.add_argument("-s,--source", dest="src_dirs", action="append",
+            type=str, default=[], required=True, help="source directory to analize")
+    parser.add_argument("-g, --graph", dest="graph", type=str, required=True,
             choices=["dot", "json"], help="sets graph type")
-    parser.add_argument("--ext", dest="exts", type=str, default=[], action="append",
-            help="add file extension to be parsed")
-    parser.add_argument("--inc", dest="inc", type=str, default=[], action="append",
-            help="add include directory")
-    parser.add_argument("--src", dest="src", type=str, default=[], action="append",
-            help="add source directory")
     args = parser.parse_args()
-
-    # normalize directory names
-    for l in range(0, len(args.inc)):
-        args.inc[l] = os.path.dirname(args.inc[l])
-    for l in range(0, len(args.src)):
-        args.src[l] = os.path.dirname(args.src[l])
-
-    # initialize configuration
-    cfg = config.Config(args.cxx, args.inc, args.src, [])
 
     # initialize graph
     if args.graph == "dot":
@@ -41,33 +28,22 @@ if __name__ == '__main__':
     elif args.graph == "json":
         graph = graphs.JsonGraph()
 
-    # build list of all source file directories
-    source_dirs = list()
-    source_dirs.extend(args.inc)
-    source_dirs.extend(args.src)
+    log.info("load: " + str(args.cmpl_cmds))
+    compile_commands = cmplcmds.CompileCommandsReader(args.cmpl_cmds)
+    log.info("found: " + str(len(compile_commands.data)) + " commands")
 
-    # create list of a paths to all files with matching extensions
-    path_list = list()
-    for source_dir in source_dirs:
-        content = os.listdir(source_dir)
-        for filename in content:
-            if os.path.splitext(filename)[1] in args.exts:
-                path_list.append(os.path.join(source_dir, filename))
-
-
-    log.info("analize: " + str(path_list))
-
-    # analize all files
-    analysis = list()
-    for path in path_list:
-        analysis.append(analize.Analize(cfg, path))
+    log.info("analize: " + str(args.src_dirs))
+    analizer = analize.Analizer(args.src_dirs)
+    for src_dir in args.src_dirs:
+        analizer.extend(compile_commands.get_commands(src_dir))
+    analizer.process()
 
     log.info("DONE")
 
     # build graph
-    for elem in analysis:
-        graph.add_node(elem.filepath)
-        for dep in elem.dependencies:
-            graph.add_edge(elem.filepath, dep)
+    for src_from in analizer.dependencies:
+        graph.add_node(src_from)
+        for src_to in analizer.dependencies[src_from]:
+            graph.add_edge(src_from, src_to)
 
     graph.dump()

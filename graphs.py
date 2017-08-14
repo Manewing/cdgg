@@ -1,3 +1,4 @@
+import os
 
 # @class Graph - TODO
 class Graph(object):
@@ -17,6 +18,10 @@ class Graph(object):
     def add_edge(self, node_from, node_to):
         if node_from == node_to:
             return # ignore self edges
+        if not node_from in self.nodes:
+            self.nodes.add(node_from)
+        if not node_to in self.nodes:
+            self.nodes.add(node_to)
         self.edges.add((node_from, node_to))
         try:
             self.node_degrees[node_to] += 1.0
@@ -39,13 +44,14 @@ class DotGraph(Graph):
 
     def mknode(self, node):
         node_id = Graph.mkunique(node)
+        node_label = os.path.basename(node)
         node_factor = self.node_degrees[node] / len(self.nodes)
 
         r = 0xff
         g = 0xff - (0xff - 0x55)*node_factor
         b = 0xff - (0xff - 0x55)*node_factor
         node_style = DotGraph.NODE_STYLE.format(DotGraph.mkcolor(r, g, b))
-        return "node_{}[label=\"{}\", {}];".format(node_id, node, node_style)
+        return "node_{}[label=\"{}\", {}];".format(node_id, node_label, node_style)
 
     def mkedge(self, node_from, node_to):
         node_from_id = Graph.mkunique(node_from)
