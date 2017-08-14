@@ -7,6 +7,7 @@ class Analizer(object):
     DEPTH_PTRN = re.compile("([.]+) (.*)")
 
     def __init__(self, src_dirs):
+        self.sources = set()
         self.dependencies = dict()
         self.cmplcmds = list()
 
@@ -30,6 +31,9 @@ class Analizer(object):
                 return True
         return False
 
+    def __add_source(self, source):
+        self.sources.add(source)
+
     def __add_dependency(self, src_from, src_to):
         if not src_from in self.dependencies:
             self.dependencies[src_from] = set([src_to])
@@ -40,6 +44,7 @@ class Analizer(object):
         result = result.split("\n")
 
         last_src = src_file
+        self.__add_source(src_file)
         for line in result:
             mtch = re.match(Analizer.DEPTH_PTRN, line)
             if mtch == None:
@@ -55,6 +60,7 @@ class Analizer(object):
                 continue
 
             if self.__is_source(mtch.group(2)):
+                self.__add_source(mtch.group(2))
                 self.__add_dependency(last_src, mtch.group(2))
                 last_src = mtch.group(2)
             else:

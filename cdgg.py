@@ -41,9 +41,14 @@ if __name__ == '__main__':
     log.info("DONE")
 
     # build graph
+    for src_from in analizer.sources:
+        for l in range(0, len(args.src_dirs)):
+            if args.src_dirs[l] in src_from:
+                graph.addNode(src_from, l)
+                break
+
     for src_from in analizer.dependencies:
-        graph.add_node(src_from)
         for src_to in analizer.dependencies[src_from]:
-            graph.add_edge(src_from, src_to)
+            graph.addEdge(src_from, src_to)
 
     graph.dump()

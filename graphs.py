@@ -1,32 +1,42 @@
 import os
+import re
+
+
+class Node(object):
+    def __init__(self, path, group):
+        self.path = path
+        self.name = os.path.basename(self.path)
+        self.degree = 1.0
+        self.group = group
+        self.id = re.sub("[/.]", "_", self.path)
+        self.edges = set()
+
+    def addEdge(self, edge):
+        self.edges.add(edge)
+
 
 # @class Graph - TODO
 class Graph(object):
     def __init__(self):
-        self.nodes = set()
+        self.nodes = dict()
         self.edges = set()
-        self.node_degrees = dict()
 
-    @staticmethod
-    def mkunique(name):
-        return name.replace("/", "_").replace(".", "_")
+    def addNode(self, path, group):
+        self.nodes[path] = Node(path, group)
 
-    def add_node(self, name):
-        self.nodes.add(name)
-        self.node_degrees[name] = 0.0
-
-    def add_edge(self, node_from, node_to):
-        if node_from == node_to:
+    def addEdge(self, path_from, path_to):
+        if path_from == path_to:
             return # ignore self edges
-        if not node_from in self.nodes:
-            self.nodes.add(node_from)
-        if not node_to in self.nodes:
-            self.nodes.add(node_to)
-        self.edges.add((node_from, node_to))
+
         try:
-            self.node_degrees[node_to] += 1.0
-        except KeyError:
-            self.node_degrees[node_to] = 1.0
+            node_from = self.nodes[path_from]
+            node_to = self.nodes[path_to]
+            edge = (node_from, node_to)
+            node_from.addEdge(edge)
+            node_to.addEdge(edge)
+            self.edges.add(edge)
+        except KeyError as e:
+            raise KeyError("no such node: " + str(e))
 
     def dump(self):
         raise RuntimeError("error abstract method called: Graph.dump")
@@ -43,26 +53,34 @@ class DotGraph(Graph):
         return "#" + hex(int(r))[2:] + hex(int(g))[2:] + hex(int(b))[2:]
 
     def mknode(self, node):
-        node_id = Graph.mkunique(node)
-        node_label = os.path.basename(node)
-        node_factor = self.node_degrees[node] / len(self.nodes)
+        nd_factor = node.degree / len(self.nodes)
 
         r = 0xff
-        g = 0xff - (0xff - 0x55)*node_factor
-        b = 0xff - (0xff - 0x55)*node_factor
-        node_style = DotGraph.NODE_STYLE.format(DotGraph.mkcolor(r, g, b))
-        return "node_{}[label=\"{}\", {}];".format(node_id, node_label, node_style)
+        g = 0xff - (0xff - 0x55)*nd_factor
+        b = 0xff - (0xff - 0x55)*nd_factor
+        nd_style = DotGraph.NODE_STYLE.format(DotGraph.mkcolor(r, g, b))
+        return "node_{}[group=\"{}\", label=\"{}\", {}];".format(node.id,
+                node.group, node.name, nd_style)
 
     def mkedge(self, node_from, node_to):
-        node_from_id = Graph.mkunique(node_from)
-        node_to_id = Graph.mkunique(node_to)
-        return "node_{} -> node_{};".format(node_from_id, node_to_id)
+        return "node_{} -> node_{};".format(node_from.id, node_to.id)
 
     def dump(self):
         print "digraph {"
 
-        for node in self.nodes:
-            print " ", self.mknode(node)
+        clusters = dict()
+        for node in self.nodes.itervalues():
+            try:
+                clusters[node.group].add(node)
+            except KeyError:
+                clusters[node.group] = set([node])
+
+        for key, cluster in clusters.items():
+            print "  subgraph cluster_"+str(key)+" {"
+
+            for node in cluster:
+                print "   ", self.mknode(node)
+            print "  }"
 
         for edge in self.edges:
             print " ", self.mkedge(edge[0], edge[1])
@@ -75,16 +93,13 @@ class JsonGraph(Graph):
         Graph.__init__(self)
 
     def mknode(self, node):
-        node_id = Graph.mkunique(node)
-        data_str = "\"id\": \"{}\", \"label\": \"{}\"".format(node_id, node)
+        data_str = "\"id\": \"{}\", \"label\": \"{}\"".format(node.id, node.name)
         return "{ \"data\": {" + data_str + "} },"
 
     def mkedge(self, node_from, node_to):
-        node_from_id = Graph.mkunique(node_from)
-        node_to_id = Graph.mkunique(node_to)
-        edge_id = node_from_id + "_" + node_to_id
+        edge_id = node_from.id + "_" + node_to.id
         data_str = "\"id\": \"{}\", \"source\": \"{}\", \"target\": \"{}\"" \
-            .format(edge_id, node_from_id, node_to_id)
+            .format(edge_id, node_from.id, node_to.id)
         return "{ \"data\": {" + data_str + "} },"
 
     def dump(self):
@@ -92,7 +107,7 @@ class JsonGraph(Graph):
 
         print "  \"nodes\": ["
 
-        for node in self.nodes:
+        for node in self.nodes.itervalues():
             print "   ", self.mknode(node)
 
         print "  ],"
