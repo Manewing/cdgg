@@ -14,11 +14,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
             description="TODO",
             epilog="TODO")
-    parser.add_argument("-c,--compile-commands", dest="cmpl_cmds", type=str,
+    parser.add_argument("-c", "--compile-commands", dest="cmpl_cmds", type=str,
             required=True, help="compile commands file to parse")
-    parser.add_argument("-s,--source", dest="src_dirs", action="append",
+    parser.add_argument("-s", "--source", dest="src_dirs", action="append",
             type=str, default=[], required=True, help="source directory to analize")
-    parser.add_argument("-g, --graph", dest="graph", type=str, required=True,
+    parser.add_argument("-g", "--graph", dest="graph", type=str, required=True,
             choices=["dot", "json"], help="sets graph type")
     args = parser.parse_args()
 
