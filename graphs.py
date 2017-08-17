@@ -6,7 +6,7 @@ class Node(object):
     def __init__(self, path, group):
         self.path = path
         self.name = os.path.basename(self.path)
-        self.degree = 1.0
+        self.degree = 0.0
         self.group = group
         self.id = re.sub("[/.]", "_", self.path)
         self.edges = set()
@@ -21,6 +21,8 @@ class Node(object):
         return data
 
     def addEdge(self, edge):
+        if edge[1] == self:
+            self.degree += 1.0
         self.edges.add(edge)
 
 
