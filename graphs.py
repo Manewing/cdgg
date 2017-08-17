@@ -1,6 +1,6 @@
 import os
 import re
-
+import json
 
 class Node(object):
     def __init__(self, path, group):
@@ -10,6 +10,15 @@ class Node(object):
         self.group = group
         self.id = re.sub("[/.]", "_", self.path)
         self.edges = set()
+
+    def toDict(self):
+        data = dict()
+        data["id"] = self.id
+        data["path"] = self.path
+        data["name"] = self.name
+        data["group"] = self.group
+        data["degree"] = self.degree
+        return data
 
     def addEdge(self, edge):
         self.edges.add(edge)
@@ -92,31 +101,13 @@ class JsonGraph(Graph):
     def __init__(self):
         Graph.__init__(self)
 
-    def mknode(self, node):
-        data_str = "\"id\": \"{}\", \"label\": \"{}\"".format(node.id, node.name)
-        return "{ \"data\": {" + data_str + "} },"
-
-    def mkedge(self, node_from, node_to):
-        edge_id = node_from.id + "_" + node_to.id
-        data_str = "\"id\": \"{}\", \"source\": \"{}\", \"target\": \"{}\"" \
-            .format(edge_id, node_from.id, node_to.id)
-        return "{ \"data\": {" + data_str + "} },"
-
     def dump(self):
-        print "{"
-
-        print "  \"nodes\": ["
-
+        nodes_data = list()
         for node in self.nodes.itervalues():
-            print "   ", self.mknode(node)
+            nodes_data.append(node.toDict())
 
-        print "  ],"
-
-        print "  \"edges\": ["
-
+        edges_data = list()
         for edge in self.edges:
-            print "   ", self.mkedge(edge[0], edge[1])
+            edges_data.append({"from": edge[0].id, "to": edge[1].id})
 
-        print "  ]"
-
-        print "}"
+        print json.dumps({"nodes": nodes_data, "edges": edges_data })
