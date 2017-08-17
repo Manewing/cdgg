@@ -28,6 +28,7 @@ class CompileCommand(object):
             ret = subprocess.check_output(self.arglist, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError, OSError:
             log.error("call failed: " + str(self.arglist))
+        ret = re.sub("\033\[[0-9]+m", "", ret)
         return ret
 
 class CompileCommandsReader(object):
